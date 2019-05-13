@@ -7,6 +7,11 @@ import numpy
 import nltk
 import json
 import string
+import math
+import matplotlib.pyplot as plt
+import pandas
+import csv
+
 
 tripreviews = open('tripreviews.json').read()
 
@@ -23,42 +28,57 @@ parsed_json = json.loads(tripreviews)
         #review: dict with review_website, review_text, review_rating, review_title, review_date, review_url
 toks = {}
 
-def add_tokens(st):
+
+def add_tokens(st, d_o_f):
   st = st.lower()
   exclude = set(string.punctuation)
   st = ''.join(ch for ch in st if ch not in exclude)
   temp = nltk.word_tokenize(st)
+  # if not ("count" in d_o_f):
+    # d_o_f["count"] = 0
   for each in temp:
-    if each in toks:
-      toks[each] = toks[each] + 1
+    if each in d_o_f:
+      d_o_f[each] = d_o_f[each] + 1
+      # d_o_f["count"] = d_o_f["count"] + 1
     else:
-      toks[each] = 1
+      # d_o_f["count"] = d_o_f["count"] + 1
+      d_o_f[each] = 1
+  return d_o_f
 
-for rest in parsed_json["restaurants"]: #gets all the info I want.
-  # print rest["name"]
-  # print rest["rating"] #goes from 1.0-5.0 (theoretically, but actually starts at 2.5)
-  # print rest["price"] #goes from 1-4
-  # rest_tokens[rest["name"]] = {}
-  # rest_tokens[rest["name"]] = {'rating': rest["rating"], 'price': rest["price"], 'reviews': [] }
+
+categories_dict = {}
+
+# 1. create dictionary with section for each rating(rounded up) and price (already round). This will be sorted by price, and each price will have 3 inner categories.
+
+i = 0
+
+freq = {}
+
+for rest in parsed_json["restaurants"]:
+  pr = rest["price"] #should go from 1-4
+  rat = rest["rating"] #should now go from 3-5
+  if not (pr, rat) in categories_dict:
+    categories_dict[pr, rat] = {}
   for revs in rest["reviews"]:
-    #adds each review string to a dict of all words
-    add_tokens(revs["review_text"])
-    # tokens(revs["review_text"])
+    categories_dict[pr, rat].update(add_tokens(revs["review_text"], categories_dict[pr, rat]))
+    # categories_dict[pr, rat].append(add_tokens(revs["review_text"]))
+    # freq = nltk.FreqDist(categories_dict[pr, rat])
 
+    # for each in freq.most_common(50):
+    #   print each
 
-freq = nltk.FreqDist(toks)
+count = 0
 
+common_freqs = []
+#can change to below to get only integers, also must change corresponding above line to: (or something similar to get rating rounded to ints # rat = int(math.ceiling(rest["rating"])) #should now go from 3-5
+#with open('trip_file.csv', mode='w') as tfile:
+with open('trip_file_floats.csv', mode='w') as tfile:
+  twriter = csv.writer(tfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+  twriter.writerow(['dollars', 'stars', 'first', 'second', 'third', 'fourth', 'num_words', 'diff_words'])
 
-print freq.most_common(40)
-
-#print rest_tokens
-
-
-# print type(parsed_json["restaurants"][0]["reviews"][0]["review_text"])
-
-# for each in parsed_json["restaurants"][0]["reviews"][0]:
-#   print each
-
-# print parsed_json["restaurants"][0]["reviews"][0]["review_text"].split()
-
-
+  for d in categories_dict:
+    print "//////////", count, "//////////", d
+    freq[d] = nltk.FreqDist(categories_dict[d])
+    temp = freq[d].most_common(10)
+    twriter.writerow([d[0], d[1], temp[0], temp[1], temp[2], temp[3], freq[d].N(), freq[d].B()])
+    count += 1
